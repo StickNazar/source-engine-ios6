@@ -27,18 +27,17 @@ steps:
       echo "CXXFLAGS=-arch armv7 -miphoneos-version-min=6.0 -isysroot $GITHUB_WORKSPACE/sdks/iPhoneOS6.0.sdk" >> $GITHUB_ENV
       echo "LDFLAGS=-arch armv7 -miphoneos-version-min=6.0 -isysroot $GITHUB_WORKSPACE/sdks/iPhoneOS6.0.sdk" >> $GITHUB_ENV
 
-  - name: Run Waf Configure & Build (Half-Life 2)
-    run: |
-      python3 waf configure --platform=ios --sdk-version=6.0 --isysroot=$SDK_PATH --arch=armv7 --build-games=hl2
-      python3 waf build
+  - name: Run Waf Configure
+    run: python3 waf configure --platform=ios --sdk-version=6.0 --isysroot=$SDK_PATH --arch=armv7 --build-games=hl2
 
-  - name: Package App into .IPA
+  - name: Run Waf Build
+    run: python3 waf build
+
+  - name: Package App into IPA
     run: |
       mkdir -p Payload
       APP_PATH=$(find build -name "*.app" -type d | head -n 1)
-      if [ -z "$APP_PATH" ]; then
-        exit 1
-      fi
+      if [ -z "$APP_PATH" ]; then exit 1; fi
       cp -R "$APP_PATH" Payload/
       zip -r HalfLife2_iOS6.ipa Payload
 
