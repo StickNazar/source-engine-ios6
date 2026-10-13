@@ -1,6 +1,6 @@
 name: Build Half-Life 2 for iOS 6 (.ipa)
-on: push: branches: [ "master", "main" ] workflow_dispatch: # Позволяет запустить сборку вручную на GitHub
-jobs: build-hl2-ios6: name: Build & Package HL2 (iOS 6.0) runs-on: macos-12 # Используем macOS 12 для лучшей обратной совместимости
+on: workflow_dispatch: # Сборка только вручную через вкладку Actions
+jobs: build-hl2-ios6: name: Build & Package HL2 (iOS 6.0) runs-on: macos-12
 steps:
   - name: Checkout Repository
     uses: actions/checkout@v3
@@ -32,7 +32,6 @@ steps:
   - name: Run Waf Configure & Build (Half-Life 2)
     run: |
       echo "=== Конфигурация Waf для Half-Life 2 ==="
-      # Параметр --build-games=hl2 указывает собирать именно HL2 (пути вроде game/client/hl2 будут задействованы)
       python3 waf configure --platform=ios --sdk-version=6.0 --isysroot=$SDK_PATH --arch=armv7 --build-games=hl2
       
       echo "=== Запуск компиляции ==="
@@ -43,7 +42,6 @@ steps:
       echo "=== Упаковка в .IPA ==="
       mkdir -p Payload
       
-      # Ищем скомпилированное приложение HL2 (.app) в папке сборки
       APP_PATH=$(find build -name "*.app" -type d | head -n 1)
       
       if [ -z "$APP_PATH" ]; then
@@ -54,7 +52,6 @@ steps:
       echo "Найдено приложение: $APP_PATH"
       cp -R "$APP_PATH" Payload/
       
-      # Запаковываем в IPA
       zip -r HalfLife2_iOS6.ipa Payload
       echo "Сборка IPA завершена успешно!"
 
