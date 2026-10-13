@@ -1,48 +1,55 @@
-name: Build Half-Life 2 for iOS 6 (.ipa)
-on: workflow_dispatch:
-jobs: build-hl2-ios6: name: Build & Package HL2 (iOS 6.0) runs-on: macos-12
-steps:
-  - name: Checkout Repository
-    uses: actions/checkout@v3
-    with:
-      submodules: recursive
+name: Build Half Life 2 for iOS 6
 
-  - name: Set up Python 3.x
-    uses: actions/setup-python@v4
-    with:
-      python-version: '3.10'
+on:
+  workflow_dispatch:
 
-  - name: Download & Extract iOS 6.0 SDK
-    run: |
-      mkdir -p sdks
-      curl -L -o sdks/iPhoneOS6.0.sdk.tar.xz https://github.com/theos/sdks/raw/master/iPhoneOS6.0.sdk.tar.xz
-      tar -xf sdks/iPhoneOS6.0.sdk.tar.xz -C sdks/
-      echo "SDK_PATH=$GITHUB_WORKSPACE/sdks/iPhoneOS6.0.sdk" >> $GITHUB_ENV
+jobs:
+  build-hl2-ios6:
+    name: Build and Package HL2
+    runs-on: macos-12
 
-  - name: Configure environment for iOS 6 ARMv7
-    run: |
-      echo "CC=$(xcrun -f clang)" >> $GITHUB_ENV
-      echo "CXX=$(xcrun -f clang++)" >> $GITHUB_ENV
-      echo "CFLAGS=-arch armv7 -miphoneos-version-min=6.0 -isysroot $GITHUB_WORKSPACE/sdks/iPhoneOS6.0.sdk" >> $GITHUB_ENV
-      echo "CXXFLAGS=-arch armv7 -miphoneos-version-min=6.0 -isysroot $GITHUB_WORKSPACE/sdks/iPhoneOS6.0.sdk" >> $GITHUB_ENV
-      echo "LDFLAGS=-arch armv7 -miphoneos-version-min=6.0 -isysroot $GITHUB_WORKSPACE/sdks/iPhoneOS6.0.sdk" >> $GITHUB_ENV
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
 
-  - name: Run Waf Configure
-    run: python3 waf configure --platform=ios --sdk-version=6.0 --isysroot=$SDK_PATH --arch=armv7 --build-games=hl2
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
 
-  - name: Run Waf Build
-    run: python3 waf build
+      - name: Download SDK
+        run: |
+          mkdir -p sdks
+          curl -L -o sdks/iPhoneOS6.0.sdk.tar.xz https://github.com/theos/sdks/raw/master/iPhoneOS6.0.sdk.tar.xz
+          tar -xf sdks/iPhoneOS6.0.sdk.tar.xz -C sdks/
+          echo "SDK_PATH=$GITHUB_WORKSPACE/sdks/iPhoneOS6.0.sdk" >> $GITHUB_ENV
 
-  - name: Package App into IPA
-    run: |
-      mkdir -p Payload
-      APP_PATH=$(find build -name "*.app" -type d | head -n 1)
-      if [ -z "$APP_PATH" ]; then exit 1; fi
-      cp -R "$APP_PATH" Payload/
-      zip -r HalfLife2_iOS6.ipa Payload
+      - name: Configure environment
+        run: |
+          echo "CC=$(xcrun -f clang)" >> $GITHUB_ENV
+          echo "CXX=$(xcrun -f clang++)" >> $GITHUB_ENV
+          echo "CFLAGS=-arch armv7 -miphoneos-version-min=6.0 -isysroot $GITHUB_WORKSPACE/sdks/iPhoneOS6.0.sdk" >> $GITHUB_ENV
+          echo "CXXFLAGS=-arch armv7 -miphoneos-version-min=6.0 -isysroot $GITHUB_WORKSPACE/sdks/iPhoneOS6.0.sdk" >> $GITHUB_ENV
+          echo "LDFLAGS=-arch armv7 -miphoneos-version-min=6.0 -isysroot $GITHUB_WORKSPACE/sdks/iPhoneOS6.0.sdk" >> $GITHUB_ENV
 
-  - name: Upload IPA Artifact
-    uses: actions/upload-artifact@v3
-    with:
-      name: Half-Life-2-iOS6-IPA
-      path: HalfLife2_iOS6.ipa
+      - name: Run Waf Configure
+        run: python3 waf configure --platform=ios --sdk-version=6.0 --isysroot=$SDK_PATH --arch=armv7 --build-games=hl2
+
+      - name: Run Waf Build
+        run: python3 waf build
+
+      - name: Package App into IPA
+        run: |
+          mkdir -p Payload
+          APP_PATH=$(find build -name "*.app" -type d | head -n 1)
+          if [ -z "$APP_PATH" ]; then exit 1; fi
+          cp -R "$APP_PATH" Payload/
+          zip -r HalfLife2_iOS6.ipa Payload
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: Half-Life-2-iOS6-IPA
+          path: HalfLife2_iOS6.ipa
