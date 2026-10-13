@@ -1,5 +1,5 @@
 name: Build Half-Life 2 for iOS 6 (.ipa)
-on: workflow_dispatch: # Сборка только вручную через вкладку Actions
+on: workflow_dispatch:
 jobs: build-hl2-ios6: name: Build & Package HL2 (iOS 6.0) runs-on: macos-12
 steps:
   - name: Checkout Repository
@@ -14,7 +14,6 @@ steps:
 
   - name: Download & Extract iOS 6.0 SDK
     run: |
-      echo "=== Загрузка SDK iOS 6.0 ==="
       mkdir -p sdks
       curl -L -o sdks/iPhoneOS6.0.sdk.tar.xz https://github.com/theos/sdks/raw/master/iPhoneOS6.0.sdk.tar.xz
       tar -xf sdks/iPhoneOS6.0.sdk.tar.xz -C sdks/
@@ -22,7 +21,6 @@ steps:
 
   - name: Configure environment for iOS 6 ARMv7
     run: |
-      echo "=== Настройка флагов компиляции ==="
       echo "CC=$(xcrun -f clang)" >> $GITHUB_ENV
       echo "CXX=$(xcrun -f clang++)" >> $GITHUB_ENV
       echo "CFLAGS=-arch armv7 -miphoneos-version-min=6.0 -isysroot $GITHUB_WORKSPACE/sdks/iPhoneOS6.0.sdk" >> $GITHUB_ENV
@@ -31,29 +29,18 @@ steps:
 
   - name: Run Waf Configure & Build (Half-Life 2)
     run: |
-      echo "=== Конфигурация Waf для Half-Life 2 ==="
       python3 waf configure --platform=ios --sdk-version=6.0 --isysroot=$SDK_PATH --arch=armv7 --build-games=hl2
-      
-      echo "=== Запуск компиляции ==="
       python3 waf build
 
   - name: Package App into .IPA
     run: |
-      echo "=== Упаковка в .IPA ==="
       mkdir -p Payload
-      
       APP_PATH=$(find build -name "*.app" -type d | head -n 1)
-      
       if [ -z "$APP_PATH" ]; then
-        echo "Ошибка: .app директория для HL2 не найдена в build!"
         exit 1
       fi
-      
-      echo "Найдено приложение: $APP_PATH"
       cp -R "$APP_PATH" Payload/
-      
       zip -r HalfLife2_iOS6.ipa Payload
-      echo "Сборка IPA завершена успешно!"
 
   - name: Upload IPA Artifact
     uses: actions/upload-artifact@v3
