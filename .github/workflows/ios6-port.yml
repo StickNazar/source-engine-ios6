@@ -1,0 +1,65 @@
+name: Build Half-Life 2 for iOS 6 (.ipa)
+on: push: branches: [ "master", "main" ] workflow_dispatch: # Позволяет запустить сборку вручную на GitHub
+jobs: build-hl2-ios6: name: Build & Package HL2 (iOS 6.0) runs-on: macos-12 # Используем macOS 12 для лучшей обратной совместимости
+steps:
+  - name: Checkout Repository
+    uses: actions/checkout@v3
+    with:
+      submodules: recursive
+
+  - name: Set up Python 3.x
+    uses: actions/setup-python@v4
+    with:
+      python-version: '3.10'
+
+  - name: Download & Extract iOS 6.0 SDK
+    run: |
+      echo "=== Загрузка SDK iOS 6.0 ==="
+      mkdir -p sdks
+      curl -L -o sdks/iPhoneOS6.0.sdk.tar.xz https://github.com/theos/sdks/raw/master/iPhoneOS6.0.sdk.tar.xz
+      tar -xf sdks/iPhoneOS6.0.sdk.tar.xz -C sdks/
+      echo "SDK_PATH=$GITHUB_WORKSPACE/sdks/iPhoneOS6.0.sdk" >> $GITHUB_ENV
+
+  - name: Configure environment for iOS 6 ARMv7
+    run: |
+      echo "=== Настройка флагов компиляции ==="
+      echo "CC=$(xcrun -f clang)" >> $GITHUB_ENV
+      echo "CXX=$(xcrun -f clang++)" >> $GITHUB_ENV
+      echo "CFLAGS=-arch armv7 -miphoneos-version-min=6.0 -isysroot $GITHUB_WORKSPACE/sdks/iPhoneOS6.0.sdk" >> $GITHUB_ENV
+      echo "CXXFLAGS=-arch armv7 -miphoneos-version-min=6.0 -isysroot $GITHUB_WORKSPACE/sdks/iPhoneOS6.0.sdk" >> $GITHUB_ENV
+      echo "LDFLAGS=-arch armv7 -miphoneos-version-min=6.0 -isysroot $GITHUB_WORKSPACE/sdks/iPhoneOS6.0.sdk" >> $GITHUB_ENV
+
+  - name: Run Waf Configure & Build (Half-Life 2)
+    run: |
+      echo "=== Конфигурация Waf для Half-Life 2 ==="
+      # Параметр --build-games=hl2 указывает собирать именно HL2 (пути вроде game/client/hl2 будут задействованы)
+      python3 waf configure --platform=ios --sdk-version=6.0 --isysroot=$SDK_PATH --arch=armv7 --build-games=hl2
+      
+      echo "=== Запуск компиляции ==="
+      python3 waf build
+
+  - name: Package App into .IPA
+    run: |
+      echo "=== Упаковка в .IPA ==="
+      mkdir -p Payload
+      
+      # Ищем скомпилированное приложение HL2 (.app) в папке сборки
+      APP_PATH=$(find build -name "*.app" -type d | head -n 1)
+      
+      if [ -z "$APP_PATH" ]; then
+        echo "Ошибка: .app директория для HL2 не найдена в build!"
+        exit 1
+      fi
+      
+      echo "Найдено приложение: $APP_PATH"
+      cp -R "$APP_PATH" Payload/
+      
+      # Запаковываем в IPA
+      zip -r HalfLife2_iOS6.ipa Payload
+      echo "Сборка IPA завершена успешно!"
+
+  - name: Upload IPA Artifact
+    uses: actions/upload-artifact@v3
+    with:
+      name: Half-Life-2-iOS6-IPA
+      path: HalfLife2_iOS6.ipa
