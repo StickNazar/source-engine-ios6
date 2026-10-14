@@ -6,7 +6,7 @@ on:
 jobs:
   build-hl2-ios6:
     name: Build and Package HL2
-    runs-on: macos-12
+    runs-on: macos-15
 
     steps:
       - name: Checkout Repository
