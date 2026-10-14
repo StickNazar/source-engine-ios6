@@ -1,3 +1,4 @@
+```yaml
 name: Build Half Life 2 for iOS 6
 
 on:
@@ -28,21 +29,14 @@ jobs:
           SDK_URL="https://github.com/growtopiajaw/iPhoneOS-SDK/releases/download/v1.0/iPhoneOS6.0.sdk.zip"
 
           curl -fL --retry 3 "$SDK_URL" -o sdks/iPhoneOS6.0.sdk.zip
-
           unzip -t sdks/iPhoneOS6.0.sdk.zip
           unzip -q sdks/iPhoneOS6.0.sdk.zip -d sdks
 
           SDK_PATH="$GITHUB_WORKSPACE/sdks/6.0"
 
-          if [ ! -d "$SDK_PATH" ]; then
-            echo "ERROR: SDK directory not found: $SDK_PATH"
-            find "$GITHUB_WORKSPACE/sdks" -maxdepth 5 -type d
-            exit 1
-          fi
-
           if [ ! -d "$SDK_PATH/System/Library/Frameworks" ]; then
-            echo "ERROR: SDK Frameworks directory is missing"
-            find "$SDK_PATH" -maxdepth 4 -type d
+            echo "ERROR: iOS SDK is missing or has an unexpected structure"
+            find "$GITHUB_WORKSPACE/sdks" -maxdepth 5 -type d
             exit 1
           fi
 
@@ -62,14 +56,14 @@ jobs:
           echo "LDFLAGS=-arch armv7 -miphoneos-version-min=6.0 -isysroot $SDK_PATH" >> "$GITHUB_ENV"
 
           xcrun clang --version
-          echo "SDK path: $SDK_PATH"
+          echo "Using SDK: $SDK_PATH"
 
       - name: Inspect SDK
         shell: bash
         run: |
           set -euo pipefail
 
-          echo "SDK: $SDK_PATH"
+          echo "SDK path: $SDK_PATH"
           ls -la "$SDK_PATH"
           ls -la "$SDK_PATH/System/Library/Frameworks"
 
@@ -79,11 +73,10 @@ jobs:
           set -o pipefail
 
           python3 waf configure \
-            --platform=ios \
-            --sdk-version=6.0 \
-            --isysroot="$SDK_PATH" \
-            --arch=armv7 \
+            --ios \
+            --togles \
             --build-games=hl2 \
+            --reconfigure \
             2>&1 | tee configure.log
 
       - name: Build Half-Life 2
@@ -136,3 +129,4 @@ jobs:
           name: half-life-2-ios6-ipa
           path: hl2-ios6.ipa
           if-no-files-found: error
+```
