@@ -66,6 +66,14 @@ jobs:
           ls -la "$SDK_PATH"
           ls -la "$SDK_PATH/System/Library/Frameworks"
 
+      - name: Clean previous build configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          rm -f build/configuration.py
+          rm -f build/c4che/_cache.py
+
       - name: Configure Half-Life 2
         shell: bash
         run: |
@@ -75,7 +83,6 @@ jobs:
             --ios \
             --togles \
             --build-games=hl2 \
-            --reconfigure \
             2>&1 | tee configure.log
 
       - name: Build Half-Life 2
