@@ -49,7 +49,7 @@ jobs:
           zip -r HalfLife2_iOS6.ipa Payload
 
       - name: Upload IPA Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Half-Life-2-iOS6-IPA
           path: HalfLife2_iOS6.ipa
