@@ -1,3 +1,4 @@
+```yaml
 name: Build Half Life 2 for iOS 6
 
 on:
@@ -5,11 +6,10 @@ on:
 
 jobs:
   build-hl2-ios6:
-    name: Build and Package HL2
     runs-on: macos-15
 
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
           submodules: recursive
@@ -17,11 +17,13 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: "3.12"
 
-      - name: Download SDK
+      - name: Download iOS 6 SDK
+        shell: bash
         run: |
           set -euo pipefail
+
           mkdir -p sdks
 
           SDK_URL="https://github.com/growtopiajaw/iPhoneOS-SDK/releases/download/v1.0/iPhoneOS6.0.sdk.zip"
@@ -31,19 +33,25 @@ jobs:
           unzip -t sdks/iPhoneOS6.0.sdk.zip
           unzip -q sdks/iPhoneOS6.0.sdk.zip -d sdks
 
-          SDK_PATH="$(find "$GITHUB_WORKSPACE/sdks" \
-            -type d -name 'iPhoneOS6.0.sdk' -print -quit)"
+          SDK_PATH="$GITHUB_WORKSPACE/sdks/6.0"
 
-          if [ -z "$SDK_PATH" ]; then
-            echo "ERROR: iPhoneOS6.0.sdk not found after extraction"
-            find sdks -maxdepth 4 -type d
+          if [ ! -d "$SDK_PATH" ]; then
+            echo "ERROR: SDK directory not found: $SDK_PATH"
+            find "$GITHUB_WORKSPACE/sdks" -maxdepth 5 -type d
+            exit 1
+          fi
+
+          if [ ! -d "$SDK_PATH/System/Library/Frameworks" ]; then
+            echo "ERROR: SDK Frameworks directory is missing"
+            find "$SDK_PATH" -maxdepth 4 -type d
             exit 1
           fi
 
           echo "SDK_PATH=$SDK_PATH" >> "$GITHUB_ENV"
           echo "SDK installed at: $SDK_PATH"
 
-      - name: Configure environment
+      - name: Configure compiler
+        shell: bash
         run: |
           set -euo pipefail
 
@@ -54,30 +62,39 @@ jobs:
           echo "CXXFLAGS=-arch armv7 -miphoneos-version-min=6.0 -isysroot $SDK_PATH" >> "$GITHUB_ENV"
           echo "LDFLAGS=-arch armv7 -miphoneos-version-min=6.0 -isysroot $SDK_PATH" >> "$GITHUB_ENV"
 
+          xcrun clang --version
+          echo "SDK path: $SDK_PATH"
+
       - name: Inspect SDK
+        shell: bash
         run: |
           set -euo pipefail
-          xcodebuild -version
-          xcrun clang --version
-          test -d "$SDK_PATH"
-          ls "$SDK_PATH"
 
-      - name: Run Waf Configure
+          echo "SDK: $SDK_PATH"
+          ls -la "$SDK_PATH"
+          ls -la "$SDK_PATH/System/Library/Frameworks"
+
+      - name: Configure Half-Life 2
+        shell: bash
         run: |
           set -o pipefail
+
           python3 waf configure \
             --platform=ios \
             --sdk-version=6.0 \
             --isysroot="$SDK_PATH" \
             --arch=armv7 \
-            --build-games=hl2 2>&1 | tee configure.log
+            --build-games=hl2 \
+            2>&1 | tee configure.log
 
-      - name: Run Waf Build
+      - name: Build Half-Life 2
+        shell: bash
         run: |
           set -o pipefail
+
           python3 waf build -v 2>&1 | tee build.log
 
-      - name: Upload Diagnostic Logs
+      - name: Upload build logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -87,24 +104,37 @@ jobs:
             build.log
           if-no-files-found: ignore
 
-      - name: Package App into IPA
+      - name: Package IPA
+        shell: bash
         run: |
           set -euo pipefail
-          mkdir -p Payload
 
-          APP_PATH="$(find build -name '*.app' -type d -print -quit)"
+          APP_PATH="$(find "$GITHUB_WORKSPACE" \
+            -type d \
+            -name '*.app' \
+            -not -path '*/sdks/*' \
+            -not -path '*/.git/*' \
+            -print -quit)"
 
           if [ -z "$APP_PATH" ]; then
-            echo "ERROR: No .app bundle found in build/"
-            find build -maxdepth 5 -type d
+            echo "ERROR: No .app bundle found after build"
+            find "$GITHUB_WORKSPACE" -type d -name '*.app' -print
             exit 1
           fi
 
-          cp -R "$APP_PATH" Payload/
-          /usr/bin/zip -r HalfLife2_iOS6.ipa Payload
+          echo "Found app: $APP_PATH"
 
-      - name: Upload IPA Artifact
+          mkdir -p "$GITHUB_WORKSPACE/ipa/Payload"
+          cp -R "$APP_PATH" "$GITHUB_WORKSPACE/ipa/Payload/"
+
+          cd "$GITHUB_WORKSPACE/ipa"
+          zip -qr "$GITHUB_WORKSPACE/hl2-ios6.ipa" Payload
+
+      - name: Upload IPA
+        if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: Half-Life-2-iOS6-IPA
-          path: HalfLife2_iOS6.ipa
+          name: half-life-2-ios6-ipa
+          path: hl2-ios6.ipa
+          if-no-files-found: error
+```
