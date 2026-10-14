@@ -108,4 +108,3 @@ jobs:
         with:
           name: Half-Life-2-iOS6-IPA
           path: HalfLife2_iOS6.ipa
-```
