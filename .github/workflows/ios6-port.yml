@@ -80,6 +80,7 @@ jobs:
           set -o pipefail
 
           python3 waf configure \
+            -T release \
             --ios \
             --togles \
             --build-games=hl2 \
