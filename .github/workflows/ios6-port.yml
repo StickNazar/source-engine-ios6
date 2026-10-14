@@ -10,46 +10,102 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: recursive
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
       - name: Download SDK
         run: |
+          set -euo pipefail
           mkdir -p sdks
-          curl -L -o sdks/iPhoneOS6.0.sdk.tar.xz https://github.com/theos/sdks/raw/master/iPhoneOS6.0.sdk.tar.xz
-          tar -xf sdks/iPhoneOS6.0.sdk.tar.xz -C sdks/
-          echo "SDK_PATH=$GITHUB_WORKSPACE/sdks/iPhoneOS6.0.sdk" >> $GITHUB_ENV
+
+          SDK_URL="https://github.com/growtopiajaw/iPhoneOS-SDK/releases/download/v1.0/iPhoneOS6.0.sdk.zip"
+
+          curl -fL --retry 3 "$SDK_URL" -o sdks/iPhoneOS6.0.sdk.zip
+
+          unzip -t sdks/iPhoneOS6.0.sdk.zip
+          unzip -q sdks/iPhoneOS6.0.sdk.zip -d sdks
+
+          SDK_PATH="$(find "$GITHUB_WORKSPACE/sdks" \
+            -type d -name 'iPhoneOS6.0.sdk' -print -quit)"
+
+          if [ -z "$SDK_PATH" ]; then
+            echo "ERROR: iPhoneOS6.0.sdk not found after extraction"
+            find sdks -maxdepth 4 -type d
+            exit 1
+          fi
+
+          echo "SDK_PATH=$SDK_PATH" >> "$GITHUB_ENV"
+          echo "SDK installed at: $SDK_PATH"
 
       - name: Configure environment
         run: |
-          echo "CC=$(xcrun -f clang)" >> $GITHUB_ENV
-          echo "CXX=$(xcrun -f clang++)" >> $GITHUB_ENV
-          echo "CFLAGS=-arch armv7 -miphoneos-version-min=6.0 -isysroot $GITHUB_WORKSPACE/sdks/iPhoneOS6.0.sdk" >> $GITHUB_ENV
-          echo "CXXFLAGS=-arch armv7 -miphoneos-version-min=6.0 -isysroot $GITHUB_WORKSPACE/sdks/iPhoneOS6.0.sdk" >> $GITHUB_ENV
-          echo "LDFLAGS=-arch armv7 -miphoneos-version-min=6.0 -isysroot $GITHUB_WORKSPACE/sdks/iPhoneOS6.0.sdk" >> $GITHUB_ENV
+          set -euo pipefail
+
+          echo "CC=$(xcrun -f clang)" >> "$GITHUB_ENV"
+          echo "CXX=$(xcrun -f clang++)" >> "$GITHUB_ENV"
+
+          echo "CFLAGS=-arch armv7 -miphoneos-version-min=6.0 -isysroot $SDK_PATH" >> "$GITHUB_ENV"
+          echo "CXXFLAGS=-arch armv7 -miphoneos-version-min=6.0 -isysroot $SDK_PATH" >> "$GITHUB_ENV"
+          echo "LDFLAGS=-arch armv7 -miphoneos-version-min=6.0 -isysroot $SDK_PATH" >> "$GITHUB_ENV"
+
+      - name: Inspect SDK
+        run: |
+          set -euo pipefail
+          xcodebuild -version
+          xcrun clang --version
+          test -d "$SDK_PATH"
+          ls "$SDK_PATH"
 
       - name: Run Waf Configure
-        run: python3 waf configure --platform=ios --sdk-version=6.0 --isysroot=$SDK_PATH --arch=armv7 --build-games=hl2
+        run: |
+          set -o pipefail
+          python3 waf configure \
+            --platform=ios \
+            --sdk-version=6.0 \
+            --isysroot="$SDK_PATH" \
+            --arch=armv7 \
+            --build-games=hl2 2>&1 | tee configure.log
 
       - name: Run Waf Build
-        run: python3 waf build
+        run: |
+          set -o pipefail
+          python3 waf build -v 2>&1 | tee build.log
+
+      - name: Upload Diagnostic Logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios6-build-logs
+          path: |
+            configure.log
+            build.log
+          if-no-files-found: ignore
 
       - name: Package App into IPA
         run: |
+          set -euo pipefail
           mkdir -p Payload
-          APP_PATH=$(find build -name "*.app" -type d | head -n 1)
-          if [ -z "$APP_PATH" ]; then exit 1; fi
+
+          APP_PATH="$(find build -name '*.app' -type d -print -quit)"
+
+          if [ -z "$APP_PATH" ]; then
+            echo "ERROR: No .app bundle found in build/"
+            find build -maxdepth 5 -type d
+            exit 1
+          fi
+
           cp -R "$APP_PATH" Payload/
-          zip -r HalfLife2_iOS6.ipa Payload
+          /usr/bin/zip -r HalfLife2_iOS6.ipa Payload
 
       - name: Upload IPA Artifact
         uses: actions/upload-artifact@v4
         with:
           name: Half-Life-2-iOS6-IPA
           path: HalfLife2_iOS6.ipa
+```
